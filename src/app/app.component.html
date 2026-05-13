@@ -1,0 +1,130 @@
+<div class="app-container">
+  <header class="main-header">
+    <div class="logo">
+      <mat-icon>shuffle</mat-icon>
+      <h1>Daily Meetings - Artico</h1>
+    </div>
+
+    <div class="actions">
+      <button 
+        mat-flat-button 
+        color="primary" 
+        class="raffle-btn"
+        [disabled]="!canGenerate() || isShuffling()"
+        (click)="performRaffle()"
+        [matTooltip]="!canGenerate() ? 'Disponible en ' + daysToWait() + ' días hábiles' : ''">
+        <mat-icon *ngIf="!isShuffling()">casino</mat-icon>
+        <span *ngIf="!isShuffling()">Realizar Sorteo</span>
+        <span *ngIf="isShuffling()" class="shuffling-text">Sorteando...</span>
+      </button>
+
+      <button mat-icon-button class="clear-btn" (click)="clearRaffle()" *ngIf="schedule()">
+        <mat-icon>delete_outline</mat-icon>
+      </button>
+    </div>
+  </header>
+
+  <main class="dashboard" *ngIf="schedule(); else noSchedule">
+    <!-- Panel Izquierdo: Turno Actual -->
+    <section class="panel panel-left" @fadeIn>
+      <div class="card current-card" *ngIf="currentSlot() as current">
+        <div class="card-header">
+          <span class="badge">TURNO ACTUAL</span>
+          <div class="remaining-badge">
+            {{ daysRemainingInBlock() }} días restantes
+          </div>
+        </div>
+
+        <div class="member-display">
+          <div class="avatar" [style.background-color]="current.member.color">
+            {{ current.member.initials }}
+          </div>
+          <div class="name-container">
+            <h2 class="member-name">{{ current.member.name }}</h2>
+            <button mat-icon-button (click)="copyResponsible()" matTooltip="Copiar nombre">
+              <mat-icon>content_copy</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-labels">
+            <span>Progreso del turno</span>
+            <span>{{ turnProgress() | number:'1.0-0' }}%</span>
+          </div>
+          <mat-progress-bar mode="determinate" [value]="turnProgress()"></mat-progress-bar>
+        </div>
+
+        <div class="date-range">
+          <mat-icon>calendar_today</mat-icon>
+          <span>{{ current.start | workdayRange:current.end }}</span>
+        </div>
+
+        <div class="next-up" *ngIf="nextSlot() as next">
+          <span class="label">SIGUIENTE:</span>
+          <div class="next-member">
+            <span class="next-dot" [style.background-color]="next.member.color"></span>
+            {{ next.member.name }}
+          </div>
+        </div>
+      </div>
+
+      <div class="card empty-current" *ngIf="!currentSlot()">
+        <mat-icon>info</mat-icon>
+        <p>No hay un turno activo para hoy</p>
+      </div>
+    </section>
+
+    <!-- Panel Derecho: Calendario Completo -->
+    <section class="panel panel-right">
+      <div class="calendar-header">
+        <h2>Calendario</h2>
+        <span class="count">{{ schedule()?.slots?.length }} turnos sorteados</span>
+      </div>
+
+      <div class="scroll-container" @listAnimation>
+        <div class="month-group" *ngFor="let group of getGroupedSlots()">
+          <div class="month-divider">
+            <span>{{ group.month }}</span>
+          </div>
+
+          <div class="slot-list">
+            <div class="slot-row" 
+                 *ngFor="let slot of group.slots"
+                 [class.active]="slot.status === 'current'"
+                 [id]="slot.status === 'current' ? 'active-slot' : null"
+                 [class.past]="slot.status === 'past'">
+              <div class="slot-index">#{{ slot.index }}</div>
+              <div class="slot-info">
+                <div class="slot-dates">{{ slot.start | workdayRange:slot.end }}</div>
+                <div class="slot-member">
+                  <span class="member-dot" [style.background-color]="slot.member.color"></span>
+                  {{ slot.member.name }}
+                </div>
+              </div>
+              <div class="slot-status">
+                <mat-icon *ngIf="slot.status === 'current'">play_circle</mat-icon>
+                <mat-icon *ngIf="slot.status === 'past'">check_circle</mat-icon>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <ng-template #noSchedule>
+    <div class="empty-state" @fadeIn>
+      <mat-icon class="large-icon">event_busy</mat-icon>
+      <h2>No hay sorteos programados</h2>
+      <p>Pulsa el botón superior para generar la planificación de los próximos 2 meses.</p>
+    </div>
+  </ng-template>
+
+  <div class="shuffling-overlay" *ngIf="isShuffling()">
+    <div class="shuffling-card">
+      <mat-icon class="spin-icon">autorenew</mat-icon>
+      <p>Mezclando integrantes...</p>
+    </div>
+  </div>
+</div>
