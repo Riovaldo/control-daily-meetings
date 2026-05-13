@@ -97,6 +97,9 @@ export class AppComponent implements OnInit {
         const saved = this.raffleService.loadFromStorage(config.members);
         if (saved) {
           this.schedule.set(saved);
+        } else {
+          // Automatic raffle on first enter (no confetti)
+          this.performRaffle(false);
         }
       },
       error: () => {
@@ -105,18 +108,21 @@ export class AppComponent implements OnInit {
     });
   }
 
-  performRaffle() {
+  performRaffle(withConfetti = true) {
     if (!this.canGenerate()) return;
 
     this.isShuffling.set(true);
 
-    // Simulate "ruleta" effect
+    // Simulate "ruleta" or "loading from DB" effect
     setTimeout(() => {
       const newSchedule = this.raffleService.generateSchedule(this.teamMembers(), this.configStartDate());
       this.schedule.set(newSchedule);
       this.isShuffling.set(false);
-      this.launchConfetti();
-      this.snackBar.open('¡Sorteo realizado con éxito! 🎉', 'Genial', { duration: 3000 });
+      
+      if (withConfetti) {
+        this.launchConfetti();
+        this.snackBar.open('¡Sorteo realizado con éxito! 🎉', 'Genial', { duration: 3000 });
+      }
     }, 1500);
   }
 
