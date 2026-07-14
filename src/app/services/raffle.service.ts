@@ -2,10 +2,8 @@ import { Injectable } from '@angular/core';
 import seedrandom from 'seedrandom';
 import { format, addMonths, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-  DailySlot, Schedule, TeamMember,
-  SerializedSchedule, SerializedSlot
-} from '../models/schedule.model';
+import { Schedule, DailySlot, TeamMember, SerializedSchedule, SerializedSlot } from '../models/schedule.model';
+import { PeriodConfig } from './team.service';
 import {
   nextBusinessDay, blockEndDate, addBusinessDays,
   businessDaysBetween, memberColor, getInitials,
@@ -39,54 +37,82 @@ export class RaffleService {
   // ──────────────────────────────────────────────
 
   /**
-   * Generates a 3-month schedule starting from a fixed startDate.
-   * Uses a seeded shuffle so all users get the same result.
+   * Generates a 3-month schedule from 'today' based on historical periods.
+   * Uses a seeded shuffle per period so all users get the same result.
    */
-  generateSchedule(memberNames: string[], configStart: string): Schedule {
-    // Parse YYYY-MM-DD as local date to avoid timezone shifts
-    const [year, month, day] = configStart.split('-').map(Number);
-    const startDate = nextBusinessDay(new Date(year, month - 1, day), this.holidays);
-    const endDate = addMonths(startDate, 3);
-    const members: TeamMember[] = memberNames.map(n => this.buildMember(n));
-
-    // Seed based on the config start date so the shuffle is always the same for that start
-    const seed = configStart;
-    const rng = seedrandom(seed);
-    
-    let shuffled = this.shuffleWithRng(members, rng);
-
+  generateSchedule(periods: PeriodConfig[]): Schedule {
+    const today = startOfDay(new Date());
+    const overallEndDate = addMonths(today, 3);
     const slots: DailySlot[] = [];
-    let cursor = startDate;
-    let poolIndex = 0;
-    let lastMemberName = '';
 
-    while (cursor <= endDate) {
-      // Avoid consecutive same person
-      let member = shuffled[poolIndex % shuffled.length];
-      if (member.name === lastMemberName && shuffled.length > 1) {
+    // Ensure periods are sorted by startDate ascending
+    const sortedPeriods = [...periods].sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+    for (let i = 0; i < sortedPeriods.length; i++) {
+      const period = sortedPeriods[i];
+      const [year, month, day] = period.startDate.split('-').map(Number);
+      const epochStart = nextBusinessDay(new Date(year, month - 1, day), this.holidays);
+
+      let nextEpochStart: Date | null = null;
+      if (sortedPeriods[i + 1]) {
+        const [ny, nm, nd] = sortedPeriods[i + 1].startDate.split('-').map(Number);
+        nextEpochStart = new Date(ny, nm - 1, nd); // Not snapping to business day to ensure sharp cutoff
+      }
+
+      // If this period starts after our 3-month future window, stop.
+      if (epochStart > overallEndDate) break;
+
+      const members: TeamMember[] = period.members.map(n => this.buildMember(n));
+      const seed = period.startDate;
+      const rng = seedrandom(seed);
+      let shuffled = this.shuffleWithRng(members, rng);
+
+      // Determine where to start generating for this epoch
+      let cursor = epochStart;
+      if (slots.length > 0) {
+        const lastSlotEnd = slots[slots.length - 1].end;
+        const nextAvail = nextBusinessDay(addBusinessDays(lastSlotEnd, 1, this.holidays), this.holidays);
+        if (nextAvail > cursor) {
+          cursor = nextAvail;
+        }
+      }
+
+      let poolIndex = 0;
+      let lastMemberName = '';
+
+      while (cursor <= overallEndDate) {
+        // If we reached the next period's start date, stop generating for this period
+        if (nextEpochStart && cursor >= nextEpochStart) {
+          break;
+        }
+
+        let member = shuffled[poolIndex % shuffled.length];
+        if (member.name === lastMemberName && shuffled.length > 1) {
+          poolIndex++;
+          member = shuffled[poolIndex % shuffled.length];
+        }
+
+        if (poolIndex % shuffled.length === 0 && poolIndex > 0) {
+          shuffled = this.shuffleWithRng(members, rng);
+        }
+
+        const blockEnd = blockEndDate(cursor, BLOCK_SIZE, this.holidays);
+        // Do not cap blockEnd by nextEpochStart to allow 3-day blocks to finish naturally
+        // But do cap it by overallEndDate
+        const actualEnd = blockEnd <= overallEndDate ? blockEnd : overallEndDate;
+
+        slots.push({
+          index: slots.length + 1,
+          start: new Date(cursor),
+          end: new Date(actualEnd),
+          member,
+          status: this.computeStatus(cursor, actualEnd)
+        });
+
+        lastMemberName = member.name;
         poolIndex++;
-        member = shuffled[poolIndex % shuffled.length];
+        cursor = nextBusinessDay(addBusinessDays(actualEnd, 1, this.holidays), this.holidays);
       }
-
-      // Re-shuffle at pool wrap to add variety
-      if (poolIndex % shuffled.length === 0 && poolIndex > 0) {
-        shuffled = this.shuffleWithRng(members, rng);
-      }
-
-      const blockEnd = blockEndDate(cursor, BLOCK_SIZE, this.holidays);
-      const actualEnd = blockEnd <= endDate ? blockEnd : endDate;
-
-      slots.push({
-        index: slots.length + 1,
-        start: new Date(cursor),
-        end: new Date(actualEnd),
-        member,
-        status: this.computeStatus(cursor, actualEnd)
-      });
-
-      lastMemberName = member.name;
-      poolIndex++;
-      cursor = nextBusinessDay(addBusinessDays(actualEnd, 1, this.holidays), this.holidays);
     }
 
     const schedule: Schedule = { slots, generatedAt: new Date().toISOString() };
@@ -118,27 +144,6 @@ export class RaffleService {
    * Returns true if the raffle button should be enabled.
    * Enabled when: no schedule exists OR ≤ 2 business days left in last slot.
    */
-  canGenerate(schedule: Schedule | null): boolean {
-    if (!schedule || schedule.slots.length === 0) return true;
-    const lastSlot = schedule.slots[schedule.slots.length - 1];
-    const today = startOfDay(new Date());
-    // Business days remaining in last slot (inclusive of today if in slot)
-    const remaining = businessDaysBetween(today, lastSlot.end, this.holidays);
-    return remaining <= 2;
-  }
-
-  /**
-   * Returns number of business days until button becomes available.
-   * Returns 0 when already available.
-   */
-  daysUntilEnabled(schedule: Schedule | null): number {
-    if (!schedule || this.canGenerate(schedule)) return 0;
-    const lastSlot = schedule.slots[schedule.slots.length - 1];
-    const today = startOfDay(new Date());
-    const remaining = businessDaysBetween(today, lastSlot.end, this.holidays);
-    return Math.max(0, remaining - 2);
-  }
-
   /** Business days between two dates (start exclusive, end inclusive). */
   businessDaysBetween(start: Date, end: Date): number {
     return businessDaysBetween(start, end, this.holidays);

@@ -2,9 +2,13 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 
-interface TeamConfig {
+export interface PeriodConfig {
   startDate: string;
   members: string[];
+}
+
+export interface TeamConfig {
+  periods: PeriodConfig[];
   holidays: string[];
 }
 
@@ -15,10 +19,5 @@ export class TeamService {
   /** Loads the entire config from assets/team-config.json. */
   loadConfig(): Observable<TeamConfig> {
     return this.http.get<TeamConfig>('assets/team-config.json');
-  }
-
-  /** Backwards compatibility for members only. */
-  loadMembers(): Observable<string[]> {
-    return this.loadConfig().pipe(map(cfg => cfg.members));
   }
 }

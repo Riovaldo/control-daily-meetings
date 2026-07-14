@@ -10,7 +10,7 @@ import { trigger, transition, style, animate, query, stagger } from '@angular/an
 import { effect } from '@angular/core';
 import confetti from 'canvas-confetti';
 
-import { TeamService } from './services/team.service';
+import { TeamService, PeriodConfig } from './services/team.service';
 import { RaffleService } from './services/raffle.service';
 import { Schedule, DailySlot } from './models/schedule.model';
 import { WorkdayRangePipe } from './pipes/workday-range.pipe';
@@ -65,16 +65,13 @@ export class AppComponent implements OnInit {
   }
 
   // Signals for state management
-  teamMembers = signal<string[]>([]);
-  configStartDate = signal<string>('');
+  configPeriods = signal<PeriodConfig[]>([]);
   schedule = signal<Schedule | null>(null);
   isShuffling = signal(false);
 
   // Computed signals
   currentSlot = computed(() => this.raffleService.getCurrentSlot(this.schedule()));
   nextSlot = computed(() => this.raffleService.getNextSlot(this.schedule()));
-  canGenerate = computed(() => this.raffleService.canGenerate(this.schedule()));
-  daysToWait = computed(() => this.raffleService.daysUntilEnabled(this.schedule()));
   daysRemainingInBlock = computed(() => this.raffleService.daysRemainingInBlock(this.schedule()));
   
   turnProgress = computed(() => {
@@ -90,16 +87,17 @@ export class AppComponent implements OnInit {
   async loadData() {
     this.teamService.loadConfig().subscribe({
       next: (config) => {
-        this.teamMembers.set(config.members);
-        this.configStartDate.set(config.startDate);
+        this.configPeriods.set(config.periods);
         this.raffleService.setHolidays(config.holidays);
         
-        const saved = this.raffleService.loadFromStorage(config.members);
+        // Pass all unique members ever mentioned in periods so local storage can load their details
+        const allMembers = Array.from(new Set(config.periods.flatMap(p => p.members)));
+        const saved = this.raffleService.loadFromStorage(allMembers);
         if (saved) {
           this.schedule.set(saved);
         } else {
-          // Automatic raffle on first enter (no confetti)
-          this.performRaffle(false);
+          // Automatic sync on first enter (no confetti)
+          this.syncCalendar(false);
         }
       },
       error: () => {
@@ -108,20 +106,18 @@ export class AppComponent implements OnInit {
     });
   }
 
-  performRaffle(withConfetti = true) {
-    if (!this.canGenerate()) return;
-
+  syncCalendar(withConfetti = true) {
     this.isShuffling.set(true);
 
     // Simulate "ruleta" or "loading from DB" effect
     setTimeout(() => {
-      const newSchedule = this.raffleService.generateSchedule(this.teamMembers(), this.configStartDate());
+      const newSchedule = this.raffleService.generateSchedule(this.configPeriods());
       this.schedule.set(newSchedule);
       this.isShuffling.set(false);
       
       if (withConfetti) {
         this.launchConfetti();
-        this.snackBar.open('¡Sorteo realizado con éxito! 🎉', 'Genial', { duration: 3000 });
+        this.snackBar.open('¡Calendario sincronizado! 🎉', 'Genial', { duration: 3000 });
       }
     }, 1500);
   }
@@ -170,14 +166,6 @@ export class AppComponent implements OnInit {
         activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }, 500);
-  }
-
-  clearRaffle() {
-    if (confirm('¿Estás seguro de que quieres limpiar el sorteo actual?')) {
-      this.raffleService.clearStorage();
-      this.schedule.set(null);
-      this.snackBar.open('Sorteo eliminado', 'Ok', { duration: 2000 });
-    }
   }
 
   getGroupedSlots() {

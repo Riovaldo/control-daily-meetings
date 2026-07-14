@@ -10,16 +10,12 @@
         mat-flat-button 
         color="primary" 
         class="raffle-btn"
-        [disabled]="!canGenerate() || isShuffling()"
-        (click)="performRaffle()"
-        [matTooltip]="!canGenerate() ? 'Disponible en ' + daysToWait() + ' días hábiles' : ''">
-        <mat-icon *ngIf="!isShuffling()">casino</mat-icon>
-        <span *ngIf="!isShuffling()">Realizar Sorteo</span>
-        <span *ngIf="isShuffling()" class="shuffling-text">Sorteando...</span>
-      </button>
-
-      <button mat-icon-button class="clear-btn" (click)="clearRaffle()" *ngIf="schedule()">
-        <mat-icon>delete_outline</mat-icon>
+        [disabled]="isShuffling()"
+        (click)="syncCalendar()"
+        matTooltip="Asegurar que el calendario muestra los próximos 3 meses">
+        <mat-icon *ngIf="!isShuffling()">sync</mat-icon>
+        <span *ngIf="!isShuffling()">Sincronizar</span>
+        <span *ngIf="isShuffling()" class="shuffling-text">Sincronizando...</span>
       </button>
     </div>
   </header>
@@ -117,7 +113,7 @@
     <div class="empty-state" @fadeIn>
       <mat-icon class="large-icon">event_busy</mat-icon>
       <h2>No hay sorteos programados</h2>
-      <p>Pulsa el botón superior para generar la planificación de los próximos 2 meses.</p>
+      <p>Pulsa el botón superior para sincronizar la planificación de los próximos 3 meses.</p>
     </div>
   </ng-template>
 

@@ -1,21 +1,44 @@
 {
-  "startDate": "2026-05-13",
-  "members": [
-    "Angel Roman",
-    "Ariel Undurraga",
-    "Joaquin Mouxaut",
-    "Luis Celis",
-    "Mateo Pillado",
-    "Tatiana Ainchil",
-    "Theo Herrera",
-    "Winston Junior Barrera",
-    "Carlos Rodriguez",
-    "Roberto Cuadros",
-    "Nicolas Vigil",
-    "Cesar Aramayo",
-    "Riovaldo Cruz",
-    "Nicolas Suarez",
-    "Jose Ignacio Chiang"
+  "periods": [
+    {
+      "startDate": "2026-05-13",
+      "members": [
+        "Angel Roman",
+        "Ariel Undurraga",
+        "Joaquin Mouxaut",
+        "Luis Celis",
+        "Mateo Pillado",
+        "Tatiana Ainchil",
+        "Theo Herrera",
+        "Winston Junior Barrera",
+        "Carlos Rodriguez",
+        "Roberto Cuadros",
+        "Nicolas Vigil",
+        "Cesar Aramayo",
+        "Riovaldo Cruz",
+        "Nicolas Suarez",
+        "Jose Ignacio Chiang"
+      ]
+    },
+    {
+      "startDate": "2026-07-14",
+      "members": [
+        "Angel Roman",
+        "Ariel Undurraga",
+        "Joaquin Mouxaut",
+        "Mateo Pillado",
+        "Tatiana Ainchil",
+        "Theo Herrera",
+        "Winston Junior Barrera",
+        "Carlos Rodriguez",
+        "Roberto Cuadros",
+        "Nicolas Vigil",
+        "Cesar Aramayo",
+        "Riovaldo Cruz",
+        "Nicolas Suarez",
+        "Jose Ignacio Chiang"
+      ]
+    }
   ],
   "holidays": [
     "2026-01-01",
