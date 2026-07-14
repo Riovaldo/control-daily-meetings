@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,8 +7,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
-import { effect } from '@angular/core';
-import confetti from 'canvas-confetti';
 
 import { TeamService, PeriodConfig } from './services/team.service';
 import { RaffleService } from './services/raffle.service';
@@ -67,16 +65,16 @@ export class AppComponent implements OnInit {
   // Signals for state management
   configPeriods = signal<PeriodConfig[]>([]);
   schedule = signal<Schedule | null>(null);
-  isShuffling = signal(false);
+  isLoading = signal(true);
 
   // Computed signals
   currentSlot = computed(() => this.raffleService.getCurrentSlot(this.schedule()));
   nextSlot = computed(() => this.raffleService.getNextSlot(this.schedule()));
   daysRemainingInBlock = computed(() => this.raffleService.daysRemainingInBlock(this.schedule()));
-  
+
   turnProgress = computed(() => {
     const remaining = this.daysRemainingInBlock();
-    const total = 3; // Block size
+    const total = 3;
     return ((total - remaining + 1) / total) * 100;
   });
 
@@ -84,69 +82,21 @@ export class AppComponent implements OnInit {
     this.loadData();
   }
 
-  async loadData() {
+  loadData() {
     this.teamService.loadConfig().subscribe({
       next: (config) => {
         this.configPeriods.set(config.periods);
         this.raffleService.setHolidays(config.holidays);
-        
-        // Pass all unique members ever mentioned in periods so local storage can load their details
-        const allMembers = Array.from(new Set(config.periods.flatMap(p => p.members)));
-        const saved = this.raffleService.loadFromStorage(allMembers);
-        if (saved) {
-          this.schedule.set(saved);
-        } else {
-          // Automatic sync on first enter (no confetti)
-          this.syncCalendar(false);
-        }
+        // Always recalculate on every page load — fully stateless
+        const schedule = this.raffleService.generateSchedule(config.periods);
+        this.schedule.set(schedule);
+        this.isLoading.set(false);
       },
       error: () => {
+        this.isLoading.set(false);
         this.snackBar.open('Error al cargar configuración del equipo', 'Cerrar', { duration: 3000 });
       }
     });
-  }
-
-  syncCalendar(withConfetti = true) {
-    this.isShuffling.set(true);
-
-    // Simulate "ruleta" or "loading from DB" effect
-    setTimeout(() => {
-      const newSchedule = this.raffleService.generateSchedule(this.configPeriods());
-      this.schedule.set(newSchedule);
-      this.isShuffling.set(false);
-      
-      if (withConfetti) {
-        this.launchConfetti();
-        this.snackBar.open('¡Calendario sincronizado! 🎉', 'Genial', { duration: 3000 });
-      }
-    }, 1500);
-  }
-
-  launchConfetti() {
-    const duration = 3 * 1000;
-    const end = Date.now() + duration;
-
-    const frame = () => {
-      confetti({
-        particleCount: 3,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 },
-        colors: ['#00ff88', '#ffffff']
-      });
-      confetti({
-        particleCount: 3,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 },
-        colors: ['#00ff88', '#ffffff']
-      });
-
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
-    };
-    frame();
   }
 
   copyResponsible() {
@@ -159,7 +109,6 @@ export class AppComponent implements OnInit {
   }
 
   scrollToActive() {
-    // Wait for the DOM to render the new list
     setTimeout(() => {
       const activeElement = document.getElementById('active-slot');
       if (activeElement) {
@@ -171,7 +120,7 @@ export class AppComponent implements OnInit {
   getGroupedSlots() {
     const slots = this.schedule()?.slots || [];
     const groups: { month: string, slots: DailySlot[] }[] = [];
-    
+
     slots.forEach(slot => {
       const month = this.raffleService.formatMonth(slot.start);
       let group = groups.find(g => g.month === month);
@@ -181,7 +130,7 @@ export class AppComponent implements OnInit {
       }
       group.slots.push(slot);
     });
-    
+
     return groups;
   }
 }

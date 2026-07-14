@@ -116,7 +116,6 @@ export class RaffleService {
     }
 
     const schedule: Schedule = { slots, generatedAt: new Date().toISOString() };
-    this.saveToStorage(schedule);
     return schedule;
   }
 
@@ -170,49 +169,6 @@ export class RaffleService {
     if (!current) return 0;
     const today = startOfDay(new Date());
     return businessDaysBetween(today, current.end, this.holidays) + 1; // +1 for today
-  }
-
-  // ──────────────────────────────────────────────
-  // localStorage persistence
-  // ──────────────────────────────────────────────
-
-  saveToStorage(schedule: Schedule): void {
-    const serialized: SerializedSchedule = {
-      generatedAt: schedule.generatedAt,
-      slots: schedule.slots.map(s => ({
-        index: s.index,
-        start: s.start.toISOString(),
-        end: s.end.toISOString(),
-        memberName: s.member.name
-      }))
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
-  }
-
-  loadFromStorage(memberNames: string[]): Schedule | null {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return null;
-      const data: SerializedSchedule = JSON.parse(raw);
-      const memberMap = new Map(
-        memberNames.map(n => [n, this.buildMember(n)])
-      );
-      const slots: DailySlot[] = data.slots.map((s: SerializedSlot) => ({
-        index: s.index,
-        start: new Date(s.start),
-        end: new Date(s.end),
-        member: memberMap.get(s.memberName) ?? this.buildMember(s.memberName),
-        status: 'upcoming' as const
-      }));
-      const schedule: Schedule = { slots, generatedAt: data.generatedAt };
-      return this.refreshStatuses(schedule);
-    } catch {
-      return null;
-    }
-  }
-
-  clearStorage(): void {
-    localStorage.removeItem(STORAGE_KEY);
   }
 
   // ──────────────────────────────────────────────

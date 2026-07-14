@@ -6,21 +6,13 @@
     </div>
 
     <div class="actions">
-      <button 
-        mat-flat-button 
-        color="primary" 
-        class="raffle-btn"
-        [disabled]="isShuffling()"
-        (click)="syncCalendar()"
-        matTooltip="Asegurar que el calendario muestra los próximos 3 meses">
-        <mat-icon *ngIf="!isShuffling()">sync</mat-icon>
-        <span *ngIf="!isShuffling()">Sincronizar</span>
-        <span *ngIf="isShuffling()" class="shuffling-text">Sincronizando...</span>
+      <button mat-icon-button (click)="copyResponsible()" *ngIf="currentSlot()" matTooltip="Copiar responsable actual">
+        <mat-icon>content_copy</mat-icon>
       </button>
     </div>
   </header>
 
-  <main class="dashboard" *ngIf="schedule(); else noSchedule">
+  <main class="dashboard" *ngIf="!isLoading() && schedule(); else loadingOrEmpty">
     <!-- Panel Izquierdo: Turno Actual -->
     <section class="panel panel-left" @fadeIn>
       <div class="card current-card" *ngIf="currentSlot() as current">
@@ -42,7 +34,6 @@
             </button>
           </div>
         </div>
-
         <div class="progress-section">
           <div class="progress-labels">
             <span>Progreso del turno</span>
@@ -109,18 +100,15 @@
     </section>
   </main>
 
-  <ng-template #noSchedule>
-    <div class="empty-state" @fadeIn>
+  <ng-template #loadingOrEmpty>
+    <div class="empty-state" @fadeIn *ngIf="isLoading()">
+      <mat-icon class="large-icon spin-icon">autorenew</mat-icon>
+      <h2>Cargando calendario...</h2>
+    </div>
+    <div class="empty-state" @fadeIn *ngIf="!isLoading()">
       <mat-icon class="large-icon">event_busy</mat-icon>
-      <h2>No hay sorteos programados</h2>
-      <p>Pulsa el botón superior para sincronizar la planificación de los próximos 3 meses.</p>
+      <h2>No hay datos de configuración</h2>
+      <p>Revisa el archivo <code>team-config.json</code></p>
     </div>
   </ng-template>
-
-  <div class="shuffling-overlay" *ngIf="isShuffling()">
-    <div class="shuffling-card">
-      <mat-icon class="spin-icon">autorenew</mat-icon>
-      <p>Mezclando integrantes...</p>
-    </div>
-  </div>
 </div>
