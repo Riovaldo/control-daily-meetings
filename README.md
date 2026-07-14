@@ -1,4 +1,4 @@
-# Daily Meetings - Artico
+# Control Daily Meetings
 
 Aplicación web en **Angular 17+** con Standalone Components para gestionar la rotación de responsables de la daily del equipo de forma determinística y sincronizada.
 
